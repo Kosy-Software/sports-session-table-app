@@ -1,9 +1,13 @@
 /// Messages that are relayed to all of the clients
-export type AppMessage = | ReceiveYoutubeVideoState | CloseIntegration
+export type AppMessage = | ReceiveYoutubeVideoState | CloseIntegration | AssignNewHost
 
 export interface ReceiveYoutubeVideoState {
     type: "receive-youtube-video-state";
     payload: { state: YT.PlayerState, time: number };
+}
+
+export interface AssignNewHost {
+    type: "assign-new-host";
 }
 
 /// Internal component messages
