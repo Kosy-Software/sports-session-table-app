@@ -7,12 +7,10 @@ export class YoutubePlayer {
     private dispatch: ((msg: ComponentMessage) => any);
     private interval: number;
     private isHost: boolean;
-    private origin: string;
 
-    public constructor(origin: string, videoId: string, isHost: boolean, dispatchFun: ((msg: ComponentMessage) => any), time?: number) {
+    public constructor(videoId: string, isHost: boolean, dispatchFun: ((msg: ComponentMessage) => any), time?: number) {
         this.dispatch = dispatchFun;
         this.isHost = isHost;
-        this.origin = origin;
 
         this.player = new YT.Player('viewing', {
             height: `0px`,
@@ -24,7 +22,7 @@ export class YoutubePlayer {
             playerVars: {
                 enablejsapi: 1,
                 autoplay: 1,
-                origin: this.origin,
+                origin: 'https://www.youtube.com',
                 fs: 1,
                 rel: 0,
                 modestbranding: 1,
@@ -38,16 +36,8 @@ export class YoutubePlayer {
         this.videoId = videoId;
     }
 
-    public setHost() {
-        let iframe = document.querySelector("#viewing") as HTMLIFrameElement;
-        iframe.classList.remove('remove-click');
-    }
-
     public getPlayer(): HTMLIFrameElement {
         let iframe = this.player.getIframe();
-        if (!this.isHost) {
-            iframe.classList.add('remove-click');
-        }
         return iframe;
     }
 
@@ -91,9 +81,10 @@ export class YoutubePlayer {
     }
 
     private onPlayerReady() {
+        this.player.mute();
+
         if (this.videoId != null) {
             this.loadVideo();
-            this.player.playVideo();
             if (this.isHost) {
                 this.interval = window.setInterval(() => { this.getCurrentStateAndTime(); }, 500)
             }
