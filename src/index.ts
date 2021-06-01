@@ -17,6 +17,7 @@ module Kosy.Integration.Youtube {
         private isApiReady: boolean;
 
         private kosyApi = new KosyApi<AppState, AppMessage, AppMessage>({
+            onClientHasJoined: (clientInfo) => this.onClientHasJoined(clientInfo),
             onClientHasLeft: (clientUuid) => this.onClientHasLeft(clientUuid),
             onReceiveMessageAsClient: (message) => this.processMessage(message),
             onReceiveMessageAsHost: (message) => this.processMessageAsHost(message),
@@ -62,6 +63,9 @@ module Kosy.Integration.Youtube {
 
         public getState() {
             return this.state;
+        }
+
+        public onClientHasJoined(clientInfo: ClientInfo) {
         }
 
         public onClientHasLeft(clientUuid: string) {
