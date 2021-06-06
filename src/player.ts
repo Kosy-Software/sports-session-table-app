@@ -7,10 +7,12 @@ export class YoutubePlayer {
     private dispatch: ((msg: ComponentMessage) => any);
     private interval: number;
     private isHost: boolean;
+    private time?: number;
 
     public constructor(videoId: string, isHost: boolean, dispatchFun: ((msg: ComponentMessage) => any), time?: number) {
         this.dispatch = dispatchFun;
         this.isHost = isHost;
+        this.time = time;
 
         this.player = new YT.Player('viewing', {
             height: `0px`,
@@ -82,6 +84,7 @@ export class YoutubePlayer {
 
     private onPlayerReady() {
         this.player.mute();
+        this.player.seekTo(this.time, true);
 
         if (this.videoId != null) {
             this.loadVideo();
