@@ -3,21 +3,18 @@ import './styles/style.scss';
 import { AppMessage, ComponentMessage } from './lib/appMessages';
 import { AppState } from './lib/appState';
 import { render } from './views/renderState';
-import { isValidYoutubeUrl } from './lib/validation';
 import { ClientInfo } from '@kosy/kosy-app-api/types';
 import { KosyApi } from '@kosy/kosy-app-api';
 import { YoutubePlayer } from './player';
 
-module Kosy.Integration.Youtube {
+module Kosy.Integration.Sports {
     export class App {
         private state: AppState = { youtubeUrl: 'https://www.youtube.com/embed?v=1skBf6h2ksI', videoState: null };
         private initializer: ClientInfo;
         private currentClient: ClientInfo;
         private player: YoutubePlayer;
-        private isApiReady: boolean;
 
         private kosyApi = new KosyApi<AppState, AppMessage, AppMessage>({
-            onClientHasJoined: (clientInfo) => this.onClientHasJoined(clientInfo),
             onClientHasLeft: (clientUuid) => this.onClientHasLeft(clientUuid),
             onReceiveMessageAsClient: (message) => this.processMessage(message),
             onReceiveMessageAsHost: (message) => this.processMessageAsHost(message),
@@ -26,12 +23,12 @@ module Kosy.Integration.Youtube {
         })
 
         public async start() {
+            await this.setupPlayerScript();
             let initialInfo = await this.kosyApi.startApp();
             this.initializer = initialInfo.clients[initialInfo.initializerClientUuid];
             this.currentClient = initialInfo.clients[initialInfo.currentClientUuid];
             this.state = initialInfo.currentAppState ?? this.state;
-            this.isApiReady = false;
-            this.setupPlayerScript();
+            this.player = new YoutubePlayer(null, this.initializer.clientUuid == this.currentClient.clientUuid, (cm) => this.processComponentMessage(cm), this.state);
             this.renderComponent();
 
             window.addEventListener("message", (event: MessageEvent<ComponentMessage>) => {
@@ -39,21 +36,17 @@ module Kosy.Integration.Youtube {
             });
         }
 
-        private setupPlayerScript() {
-            //Make sure api is loaded before initializing player
-            window.onYouTubeIframeAPIReady = () => { this.onYouTubeIframeAPIReady(); };
+        private async setupPlayerScript() {
+            return new Promise<void>((resolve, reject) => {
+                //Make sure api is loaded before initializing player
+                window.onYouTubeIframeAPIReady = () => resolve()
 
-            const tag = document.createElement("script");
-            tag.src = "https://www.youtube.com/iframe_api";
+                const tag = document.createElement("script");
+                tag.src = "https://www.youtube.com/iframe_api";
 
-            const firstScriptTag = document.getElementsByTagName("script")[0];
-            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-        }
-
-        private onYouTubeIframeAPIReady() {
-            this.isApiReady = true;
-            this.player = new YoutubePlayer('', this.initializer.clientUuid == this.currentClient.clientUuid, (cm) => this.processComponentMessage(cm), this.state.time);
-            this.renderComponent();
+                const firstScriptTag = document.getElementsByTagName("script")[0];
+                firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            });
         }
 
         public setState(newState: AppState) {
@@ -65,9 +58,6 @@ module Kosy.Integration.Youtube {
             return this.state;
         }
 
-        public onClientHasJoined(clientInfo: ClientInfo) {
-        }
-
         public onClientHasLeft(clientUuid: string) {
             if (clientUuid === this.initializer.clientUuid) {
                 if (!this.state.youtubeUrl) {
@@ -75,6 +65,28 @@ module Kosy.Integration.Youtube {
                 } else {
                     this.kosyApi.relayMessage({ type: 'assign-new-host' });
                 }
+            }
+        }
+
+        public processMessage(message: AppMessage) {
+            switch (message.type) {
+                case "close-integration":
+                    this.kosyApi.stopApp();
+                    break;
+                case "receive-youtube-video-state":
+                    if (this.currentClient.clientUuid !== this.initializer.clientUuid) {
+                        this.player.handleStateChange(message.payload.state, message.payload.time);
+                        this.state.videoState = message.payload.state;
+                        this.state.time = message.payload.time;
+                        this.renderComponent();
+                    }
+                    if (this.state.videoState == YT.PlayerState.ENDED) {
+                        console.log("Video ended, clearing youtube url");
+                        this.state.youtubeUrl = null;
+                        this.state.videoState = null;
+                        this.kosyApi.stopApp();
+                    }
+                    break;
             }
         }
 
@@ -88,26 +100,6 @@ module Kosy.Integration.Youtube {
             }
 
             return null;
-        }
-
-        public processMessage(message: AppMessage) {
-            switch (message.type) {
-                case "close-integration":
-                    this.kosyApi.stopApp();
-                    break;
-                case "receive-youtube-video-state":
-                    if (this.isApiReady) {
-                        this.state.videoState = message.payload.state;
-                        this.state.time = message.payload.time;
-                        if (this.state.videoState == YT.PlayerState.ENDED) {
-                            console.log("Video ended, clearing youtube url");
-                            this.state.videoState = null;
-                            this.kosyApi.stopApp();
-                        }
-                        this.renderComponent();
-                    }
-                    break;
-            }
         }
 
         private processComponentMessage(message: ComponentMessage) {
@@ -127,12 +119,12 @@ module Kosy.Integration.Youtube {
         //Poor man's react, so we don't need to fetch the entire react library for this tiny app...
         private renderComponent() {
             render({
+                youtubeUrl: this.state.youtubeUrl,
                 videoState: this.state.videoState,
                 time: this.state.time,
                 currentClient: this.currentClient,
                 initializer: this.initializer,
                 player: this.player,
-                youtubeUrl: this.state.youtubeUrl,
             }, (message) => this.processComponentMessage(message));
         }
 

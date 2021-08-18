@@ -7,16 +7,14 @@ export function renderViewingState(state: ComponentState, dispatch: ((msg: Compo
     let urlParts = state.youtubeUrl.split('=');
     let videoId = urlParts[1];
 
-    console.log(videoId);
-
-    if (state.player != null && state.youtubeUrl != null) {
-        state.player.setVideoId(videoId);
-
-        let iframe = state.player.getPlayer();
-        iframe.classList.add('overlay');
-        return iframe;
+    if (state.player != null) {
+        let container = document.createElement("div");
+        state.player.setVideoId(videoId).then(async () => {
+            let iframe = await state.player.getIframe();
+            container.appendChild(iframe);
+        });
+        return container;
     }
-
     let emptyNode = viewingRoot.cloneNode(false) as HTMLElement;
     return emptyNode;
 }
