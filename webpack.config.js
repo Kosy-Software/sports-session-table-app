@@ -93,7 +93,6 @@ module.exports = (env, options) => {
         devServer: {
             https: CONFIG.devServerSsl,
             hot: true,
-            publicPath: "/",
             host: CONFIG.devServerHost,
             port: CONFIG.devServerPort
         },
